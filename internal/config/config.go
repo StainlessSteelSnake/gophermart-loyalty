@@ -7,13 +7,14 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
-const defaultRunAddress = "http://localhost:8080/"
-const defaultDatabaseURI = "postgresql://gopher_app:qazxswedc@localhost:5432/gopher-loyalty"
+const defaultRunAddress = "localhost:8080"
+const defaultDatabaseURI = "postgresql://gophermart_app:qazxswedc@localhost:5432/gophermart-loyalty"
 
 type Configuration struct {
 	RunAddress           string `env:"RUN_ADDRESS"`
 	DatabaseURI          string `env:"DATABASE_URI"`
 	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
+	BaseURL              string
 }
 
 func NewConfiguration() *Configuration {
@@ -25,16 +26,13 @@ func NewConfiguration() *Configuration {
 	if err != nil {
 		log.Println(err)
 	}
-
-	runAddress := []rune(cfg.RunAddress)
-	if runAddress[len(runAddress)-1] != '/' {
-		cfg.RunAddress += "/"
-	}
-
-	databaseURI := []rune(cfg.DatabaseURI)
-	if databaseURI[len(databaseURI)-1] != '/' {
-		cfg.DatabaseURI += "/"
-	}
+	/*
+		runAddress := []rune(cfg.RunAddress)
+		if runAddress[len(runAddress)-1] != '/' {
+			cfg.RunAddress += "/"
+		}
+	*/
+	cfg.BaseURL = "http://" + cfg.RunAddress + "/"
 
 	log.Println("Resulting config:", cfg)
 

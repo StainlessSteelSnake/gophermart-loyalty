@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"log"
+
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/config"
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/database"
-	"log"
+	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/handlers"
+	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/server"
 )
 
 func main() {
@@ -18,4 +21,9 @@ func main() {
 	if dbStorage == nil {
 		log.Fatal("Не удалось инициализировать БД сервиса системы лояльности")
 	}
+
+	handler := handlers.NewHandler(dbStorage, cfg.BaseURL)
+
+	srv := server.NewServer(cfg.RunAddress, handler)
+	log.Fatal(srv.ListenAndServe())
 }

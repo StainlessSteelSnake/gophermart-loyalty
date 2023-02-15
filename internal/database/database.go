@@ -3,13 +3,17 @@ package database
 import (
 	"context"
 	"errors"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"log"
 	"strings"
 	"sync"
+
+	"github.com/jackc/pgx/v5"
 )
 
-const dbUser = "gophermart_app"
+const (
+	dbExistError = "42601"
+)
 
 type locker struct {
 	user, orders, transactions, account sync.RWMutex
@@ -47,6 +51,7 @@ func NewDatabaseStorage(ctx context.Context, databaseURI string) Storager {
 		log.Fatal(errors.New("в URI базы данных отсутствует информация о пользователе"))
 		return dbStorage
 	}
+	log.Println("Пользователь БД:", dbStorage.dbUser)
 
 	err = dbStorage.init(ctx)
 	if err != nil {
@@ -58,32 +63,38 @@ func NewDatabaseStorage(ctx context.Context, databaseURI string) Storager {
 
 func (s *databaseStorage) init(ctx context.Context) error {
 
+	var pgErr *pgconn.PgError
+
 	_, err := s.conn.Exec(ctx, sqlCreateDatabase, s.dbUser)
+	if err != nil && !errors.As(err, &pgErr) {
+		return err
+	}
+
+	if err != nil && pgErr.Code != dbExistError {
+		return err
+	}
+
+	_, err = s.conn.Exec(ctx, sqlCreateTableUsers)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.conn.Exec(ctx, sqlCreateTableUsers, s.dbUser)
+	_, err = s.conn.Exec(ctx, sqlCreateTableOrders)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.conn.Exec(ctx, sqlCreateTableOrders, s.dbUser)
+	_, err = s.conn.Exec(ctx, sqlCreateTableAccounts)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.conn.Exec(ctx, sqlCreateTableAccounts, s.dbUser)
+	_, err = s.conn.Exec(ctx, sqlCreateTableAccounts)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.conn.Exec(ctx, sqlCreateTableAccounts, s.dbUser)
-	if err != nil {
-		return err
-	}
-
-	_, err = s.conn.Exec(ctx, sqlCreateTableTransactions, s.dbUser)
+	_, err = s.conn.Exec(ctx, sqlCreateTableTransactions)
 	if err != nil {
 		return err
 	}

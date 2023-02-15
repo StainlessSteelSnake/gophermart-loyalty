@@ -20,10 +20,7 @@ const sqlCreateTableUsers = `
 		CONSTRAINT users_pkey PRIMARY KEY (login)
 	)
 	
-	TABLESPACE pg_default;
-	
-	ALTER TABLE IF EXISTS public.users
-		OWNER to $1;	
+	TABLESPACE pg_default;	
 `
 
 const sqlCreateTableOrders = `
@@ -37,9 +34,6 @@ const sqlCreateTableOrders = `
 	)
 	
 	TABLESPACE pg_default;
-	
-	ALTER TABLE IF EXISTS public.orders
-		OWNER to $1;
 `
 
 const sqlCreateTableAccounts = `
@@ -52,9 +46,6 @@ const sqlCreateTableAccounts = `
 	)
 	
 	TABLESPACE pg_default;
-	
-	ALTER TABLE IF EXISTS public.accounts
-		OWNER to $1;
 `
 
 const sqlCreateTableTransactions = `
@@ -71,7 +62,4 @@ const sqlCreateTableTransactions = `
 	)
 	
 	TABLESPACE pg_default;
-	
-	ALTER TABLE IF EXISTS public.transactions
-		OWNER to gophermart_app;
 `
