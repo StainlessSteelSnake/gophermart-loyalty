@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 )
@@ -46,7 +47,7 @@ func getHash(s string) (string, error) {
 		return "", err
 	}
 
-	return string(hasher.Sum(nil)), nil
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 func getSign(s string) (string, error) {
@@ -57,7 +58,7 @@ func getSign(s string) (string, error) {
 		return "", err
 	}
 
-	return string(h.Sum(nil)), nil
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func getRandom(size int) (string, error) {
@@ -68,7 +69,7 @@ func getRandom(size int) (string, error) {
 		return "", err
 	}
 
-	return string(b), nil
+	return hex.EncodeToString(b), nil
 }
 
 func (a *authentication) createToken(l, ph string) (string, error) {
@@ -89,7 +90,7 @@ func (a *authentication) createToken(l, ph string) (string, error) {
 		return "", err
 	}
 
-	token = token + ":" + tokenSign
+	token = token + tokenSign
 
 	user := user{
 		login:        l,
@@ -164,7 +165,7 @@ func (a *authentication) checkPassword(l, p string) (string, error) {
 func (a *authentication) Authenticate(t string) (string, error) {
 	tokenParts := strings.Split(t, ":")
 	if len(tokenParts) != 2 {
-		return "", errors.New("токен авторизации передан в неправильном неправильный формате")
+		return "", errors.New("токен авторизации передан в неправильном формате")
 	}
 
 	loginHash := tokenParts[0]

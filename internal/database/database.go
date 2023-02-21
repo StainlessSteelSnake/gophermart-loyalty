@@ -109,6 +109,8 @@ func (s *databaseStorage) AddUser(login string, password string) error {
 	s.locker.user.Lock()
 	defer s.locker.user.Unlock()
 
+	log.Printf("Добавление в БД пользователя '%v' с хэшем пароля '%v'\n", login, password)
+
 	ctx := context.Background()
 	var pgErr *pgconn.PgError
 	ct, err := s.conn.Exec(ctx, queryInsertUser, login, password)
