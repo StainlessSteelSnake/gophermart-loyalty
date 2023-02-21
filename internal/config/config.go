@@ -26,12 +26,7 @@ func NewConfiguration() *Configuration {
 	if err != nil {
 		log.Println(err)
 	}
-	/*
-		runAddress := []rune(cfg.RunAddress)
-		if runAddress[len(runAddress)-1] != '/' {
-			cfg.RunAddress += "/"
-		}
-	*/
+
 	cfg.BaseURL = "http://" + cfg.RunAddress + "/"
 
 	log.Println("Resulting config:", cfg)

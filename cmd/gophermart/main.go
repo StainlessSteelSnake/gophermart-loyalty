@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/auth"
 	"log"
 
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/config"
@@ -21,8 +22,11 @@ func main() {
 	if dbStorage == nil {
 		log.Fatal("Не удалось инициализировать БД сервиса системы лояльности")
 	}
+	defer dbStorage.Close()
 
-	handler := handlers.NewHandler(dbStorage, cfg.BaseURL)
+	authenticator := auth.NewAuth(dbStorage)
+
+	handler := handlers.NewHandler(dbStorage, cfg.BaseURL, authenticator)
 
 	srv := server.NewServer(cfg.RunAddress, handler)
 	log.Fatal(srv.ListenAndServe())

@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"log"
 	"strings"
@@ -27,7 +28,8 @@ type databaseStorage struct {
 
 type Storager interface {
 	AddUser(login string, password string) error
-	GetUser(login string, password string) error
+	GetUserPassword(login string) (string, error)
+	Close()
 }
 
 func NewDatabaseStorage(ctx context.Context, databaseURI string) Storager {
@@ -104,8 +106,57 @@ func (s *databaseStorage) init(ctx context.Context) error {
 }
 
 func (s *databaseStorage) AddUser(login string, password string) error {
+	s.locker.user.Lock()
+	defer s.locker.user.Unlock()
+
+	ctx := context.Background()
+	var pgErr *pgconn.PgError
+	ct, err := s.conn.Exec(ctx, queryInsertUser, login, password)
+	if err != nil && !errors.As(err, &pgErr) {
+		log.Println("Ошибка при добавлении пользователя в БД:", err)
+		return err
+	}
+
+	if err != nil && pgErr.Code != pgerrcode.UniqueViolation {
+		log.Println("Ошибка при добавлении пользователя в БД, код:", pgErr.Code, ", сообщение:", pgErr.Error())
+		return err
+	}
+
+	if err != nil {
+		log.Println("Ошибка при добавлении пользователя в БД, код:", pgErr.Code, ", сообщение:", pgErr.Error())
+		return NewDBError(login, true, err)
+	}
+
+	log.Println("Добавлено записей пользователей в таблицу БД:", ct.RowsAffected())
 	return nil
 }
-func (s *databaseStorage) GetUser(login string, password string) error {
-	return nil
+
+func (s *databaseStorage) GetUserPassword(login string) (string, error) {
+	s.locker.user.RLock()
+	defer s.locker.user.RUnlock()
+
+	var passwordHash string
+	ctx := context.Background()
+
+	r := s.conn.QueryRow(ctx, querySelectPassword, login)
+	err := r.Scan(&passwordHash)
+	if err != nil {
+		log.Println("Ошибка при считывании пароля пользователя из БД:", err)
+		return "", NewDBError(login, false, err)
+	}
+
+	return passwordHash, nil
+}
+
+func (s *databaseStorage) Close() {
+	if s.conn == nil {
+		return
+	}
+
+	ctx := context.Background()
+	err := s.conn.Close(ctx)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/auth"
 	"log"
 	"net/http"
 
@@ -10,25 +11,28 @@ import (
 
 type Handler struct {
 	*chi.Mux
-	storage database.Storager
-	baseURL string
+	storage          database.Storager
+	auth             auth.Authenticator
+	currentUserLogin string
+	baseURL          string
 }
 
-func NewHandler(s database.Storager, baseURL string) *Handler {
+func NewHandler(s database.Storager, baseURL string, a auth.Authenticator) *Handler {
 	log.Println("Base URL:", baseURL)
 
 	handler := &Handler{
-		chi.NewMux(),
-		s,
-		baseURL,
+		Mux:     chi.NewMux(),
+		storage: s,
+		auth:    a,
+		baseURL: baseURL,
 	}
 
 	handler.Route("/", func(r chi.Router) {
-		//handler.Use(handler.auth.Authenticate)
+		handler.Use(handler.authenticate)
 		//handler.Use(gzipHandler)
 
 		r.Post("/api/user/register", handler.registerUser)
-		r.Post("/api/user/login", handler.authenticateUser)
+		r.Post("/api/user/login", handler.loginUser)
 		r.Post("/api/user/orders", handler.addOrder)
 		r.Get("/api/user/orders", handler.getOrders)
 		r.Get("/api/user/balance", handler.getBalance)
@@ -42,14 +46,6 @@ func NewHandler(s database.Storager, baseURL string) *Handler {
 
 func (h *Handler) badRequest(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "неподдерживаемый запрос: '"+r.RequestURI+"'", http.StatusBadRequest)
-}
-
-func (h *Handler) registerUser(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func (h *Handler) authenticateUser(w http.ResponseWriter, r *http.Request) {
-
 }
 
 func (h *Handler) addOrder(w http.ResponseWriter, r *http.Request) {
