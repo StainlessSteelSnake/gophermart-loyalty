@@ -17,7 +17,9 @@ func main() {
 		log.Fatal("Не удалось получить конфигурацию сервиса системы лояльности")
 	}
 
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	dbStorage := database.NewDatabaseStorage(ctx, cfg.DatabaseURI)
 	if dbStorage == nil {
 		log.Fatal("Не удалось инициализировать БД сервиса системы лояльности")
