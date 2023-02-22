@@ -3,9 +3,11 @@ package database
 import "fmt"
 
 type DBError struct {
-	Entity    string
-	Duplicate bool
-	Err       error
+	Entity      string
+	User        string
+	AnotherUser bool
+	Duplicate   bool
+	Err         error
 }
 
 func (e DBError) Error() string {
@@ -22,17 +24,19 @@ func (e DBError) Is(target error) bool {
 		return false
 	}
 
-	if err.Entity != e.Entity || err.Duplicate != e.Duplicate {
+	if err.Entity != e.Entity || err.Duplicate != e.Duplicate || err.AnotherUser != e.AnotherUser {
 		return false
 	}
 
 	return true
 }
 
-func NewDBError(entity string, duplicate bool, err error) error {
+func NewDBError(entity, user string, anotherUser bool, duplicate bool, err error) error {
 	return &DBError{
-		Entity:    entity,
-		Duplicate: duplicate,
-		Err:       err,
+		Entity:      entity,
+		User:        user,
+		Duplicate:   duplicate,
+		AnotherUser: anotherUser,
+		Err:         err,
 	}
 }

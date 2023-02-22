@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/auth"
+	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/orders"
 	"log"
 
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/config"
@@ -28,7 +29,9 @@ func main() {
 
 	authenticator := auth.NewAuth(dbStorage)
 
-	handler := handlers.NewHandler(dbStorage, cfg.BaseURL, authenticator)
+	orderController := orders.NewOrders(dbStorage)
+
+	handler := handlers.NewHandler(cfg.BaseURL, authenticator, orderController)
 
 	srv := server.NewServer(cfg.RunAddress, handler)
 	log.Fatal(srv.ListenAndServe())

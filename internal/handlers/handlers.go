@@ -1,29 +1,29 @@
 package handlers
 
 import (
+	"errors"
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/auth"
+	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/orders"
+	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
-
-	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/database"
-	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
 	*chi.Mux
-	storage          database.Storager
 	auth             auth.Authenticator
+	orders           orders.OrderAdderGetter
 	currentUserLogin string
 	baseURL          string
 }
 
-func NewHandler(s database.Storager, baseURL string, a auth.Authenticator) *Handler {
+func NewHandler(baseURL string, a auth.Authenticator, o orders.OrderAdderGetter) *Handler {
 	log.Println("Base URL:", baseURL)
 
 	handler := &Handler{
 		Mux:     chi.NewMux(),
-		storage: s,
 		auth:    a,
+		orders:  o,
 		baseURL: baseURL,
 	}
 
@@ -49,7 +49,55 @@ func (h *Handler) badRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) addOrder(w http.ResponseWriter, r *http.Request) {
+	if h.currentUserLogin == "" {
+		log.Println("Пользователь не аутентифицирован")
+		http.Error(w, "пользователь не аутентифицирован", http.StatusUnauthorized)
+		return
+	}
 
+	request, err := decodeRequest(r)
+	if err != nil {
+		log.Println("Неверный формат данных в запросе добавления заказа:", err)
+		http.Error(w, "неверный формат данных в запросе добавления заказа: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	orderID := string(request)
+
+	var orderError *orders.OrderError
+	err = h.orders.AddOrder(h.currentUserLogin, orderID)
+
+	if err != nil && errors.As(err, &orderError) {
+		log.Println(err)
+
+		switch {
+		case orderError.IncorrectID:
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		case orderError.Duplicate && orderError.User == h.currentUserLogin:
+			http.Error(w, err.Error(), http.StatusOK)
+		case orderError.Duplicate && orderError.User != h.currentUserLogin:
+			http.Error(w, err.Error(), http.StatusConflict)
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+
+		return
+	}
+
+	if err != nil && errors.Is(err, orders.NewOrderError(orderID, true, false, h.currentUserLogin, nil)) {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("Новый номер заказа '" + orderID + "' принят в обработку")
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h *Handler) getOrders(w http.ResponseWriter, r *http.Request) {

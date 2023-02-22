@@ -8,6 +8,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -27,9 +28,18 @@ type databaseStorage struct {
 }
 
 type Storager interface {
-	AddUser(login string, password string) error
+	AddUser(userID string, password string) error
 	GetUserPassword(login string) (string, error)
+	AddOrder(user string, order string) error
+	GetOrders(user string) ([]Order, error)
 	Close()
+}
+
+type Order struct {
+	ID         string
+	UserLogin  string
+	Status     string
+	UploadedAt time.Time
 }
 
 func NewDatabaseStorage(ctx context.Context, databaseURI string) Storager {
@@ -126,7 +136,7 @@ func (s *databaseStorage) AddUser(login string, password string) error {
 
 	if err != nil {
 		log.Println("Ошибка при добавлении пользователя в БД, код:", pgErr.Code, ", сообщение:", pgErr.Error())
-		return NewDBError(login, true, err)
+		return NewDBError(login, login, false, true, err)
 	}
 
 	log.Println("Добавлено записей пользователей в таблицу БД:", ct.RowsAffected())
@@ -144,10 +154,57 @@ func (s *databaseStorage) GetUserPassword(login string) (string, error) {
 	err := r.Scan(&passwordHash)
 	if err != nil {
 		log.Println("Ошибка при считывании пароля пользователя из БД:", err)
-		return "", NewDBError(login, false, err)
+		return "", NewDBError(login, login, false, false, err)
 	}
 
 	return passwordHash, nil
+}
+
+func (s *databaseStorage) AddOrder(user, order string) error {
+	s.locker.orders.Lock()
+	defer s.locker.orders.Unlock()
+
+	log.Printf("Добавление в БД заказа '%v' для пользователя '%v'\n", order, user)
+
+	ctx := context.Background()
+	var pgErr *pgconn.PgError
+	ct, err := s.conn.Exec(ctx, queryInsertOrder, order, user, time.Now())
+	if err != nil && !errors.As(err, &pgErr) {
+		log.Println("Ошибка при добавлении заказа '"+order+"' под пользователем '"+user+"' в БД:", err)
+		return err
+	}
+
+	if err != nil && pgErr.Code != pgerrcode.UniqueViolation {
+		log.Println("Ошибка при добавлении заказа '"+order+"' под пользователем '"+user+"' в БД, код:", pgErr.Code, ", сообщение:", pgErr.Error())
+		return err
+	}
+
+	var orderUser string
+	if err != nil {
+		r := s.conn.QueryRow(ctx, queryGetOrderUserByID, order)
+
+		err = r.Scan(&orderUser)
+		if err != nil {
+			log.Println("Ошибка при добавлении заказа '"+order+"' под пользователем '"+user+"' в БД, код:", pgErr.Code, ", сообщение:", pgErr.Error())
+			return err
+		}
+
+		if orderUser != user {
+			log.Println("Заказ '" + order + "' уже был загружен ранее другим пользователем '" + orderUser + "'")
+			return NewDBError(order, orderUser, true, true, errors.New("заказ '"+order+"' уже был загружен ранее другим пользователем"))
+		}
+
+		log.Println("Заказ '" + order + "' уже был загружен ранее текущим пользователем '" + user + "'")
+		return NewDBError(order, user, false, true, errors.New("заказ '"+order+"' уже был загружен ранее текущим пользователем '"+user+"'"))
+
+	}
+
+	log.Println("Добавлено записей заказов в таблицу БД:", ct.RowsAffected())
+	return nil
+}
+
+func (s *databaseStorage) GetOrders(user string) ([]Order, error) {
+	return nil, nil
 }
 
 func (s *databaseStorage) Close() {

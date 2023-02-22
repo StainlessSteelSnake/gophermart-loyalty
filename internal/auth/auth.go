@@ -19,8 +19,8 @@ type user struct {
 }
 
 type authentication struct {
-	userController UserAdderGetter
 	users          map[string]user
+	userController UserAdderGetter
 }
 
 type UserAdderGetter interface {

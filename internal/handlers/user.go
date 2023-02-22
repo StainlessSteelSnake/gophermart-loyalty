@@ -26,6 +26,7 @@ func (h *Handler) authenticate(next http.Handler) http.Handler {
 		var err error
 		h.currentUserLogin, err = h.auth.Authenticate(token)
 		if err != nil {
+			log.Println("Пользователь не аутентифицирован")
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
@@ -88,7 +89,7 @@ func (h *Handler) loginUser(w http.ResponseWriter, r *http.Request) {
 	log.Println("Переданные данные для авторизации пользователя:", requestBody)
 
 	token, err := h.auth.Login(requestBody.Login, requestBody.Password)
-	if err != nil && errors.Is(err, database.DBError{Entity: requestBody.Login, Duplicate: true, Err: nil}) {
+	if err != nil && errors.Is(err, database.DBError{Entity: requestBody.Login, Duplicate: false, Err: nil}) {
 		log.Println("Неверная пара логин/пароль:", err)
 		http.Error(w, "неверная пара логин/пароль: "+err.Error(), http.StatusUnauthorized)
 		return
