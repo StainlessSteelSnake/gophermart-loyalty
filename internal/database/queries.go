@@ -26,8 +26,11 @@ const (
 	WHERE id = $1
 `
 	queryGetOrdersByUser = `
-	SELECT id, user_login, status, uploaded
-	FROM public.orders
-	WHERE user_login = $1
+	SELECT o.id, o.status, COALESCE(t.amount, 0), o.uploaded
+	FROM public.orders AS o 
+	LEFT JOIN public.transactions AS t 
+	ON t.order_number = o.id AND t.type = 'ACCRUAL'
+	WHERE o.user_login = $1
+	ORDER BY o.uploaded ASC
 `
 )

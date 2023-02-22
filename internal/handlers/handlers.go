@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/auth"
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/orders"
@@ -101,7 +102,40 @@ func (h *Handler) addOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getOrders(w http.ResponseWriter, r *http.Request) {
+	if h.currentUserLogin == "" {
+		log.Println("Пользователь не аутентифицирован")
+		http.Error(w, "пользователь не аутентифицирован", http.StatusUnauthorized)
+		return
+	}
 
+	orders, err := h.orders.GetOrders(h.currentUserLogin)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(orders) == 0 {
+		log.Println("Заказы для пользователя не найдены")
+		http.Error(w, "заказы для пользователя не найдены", http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	response, err := json.Marshal(orders)
+	if err != nil {
+		log.Println("Ошибка при формировании ответа:", err)
+		http.Error(w, "ошибка при формировании ответа: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	_, err = w.Write(response)
+	if err != nil {
+		log.Println("Ошибка при записи ответа в тело запроса:", err)
+	}
 }
 
 func (h *Handler) getBalance(w http.ResponseWriter, r *http.Request) {
