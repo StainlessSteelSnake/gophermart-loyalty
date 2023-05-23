@@ -52,7 +52,7 @@ type Storager interface {
 	AddOrder(user string, order string) error
 	GetOrders(user string) ([]OrderWithAccrual, error)
 	GetOrdersToProcess() ([]Order, error)
-	UpdateOrder([]Order) error
+	UpdateOrder(Order, int) error
 	Close()
 }
 
@@ -280,6 +280,9 @@ func (s *databaseStorage) GetOrders(user string) ([]OrderWithAccrual, error) {
 }
 
 func (s *databaseStorage) GetOrdersToProcess() ([]Order, error) {
+	s.locker.orders.RLock()
+	defer s.locker.orders.RUnlock()
+
 	ctx := context.Background()
 
 	rows, err := s.conn.Query(ctx, queryGetOrdersToProcess)
@@ -310,9 +313,11 @@ func (s *databaseStorage) GetOrdersToProcess() ([]Order, error) {
 	}
 
 	return result, nil
-
 }
 
-func (s *databaseStorage) UpdateOrder(orders []Order) error {
+func (s *databaseStorage) UpdateOrder(order Order, accrual int) error {
+	s.orders.Lock()
+	defer s.orders.Unlock()
+
 	return nil
 }
