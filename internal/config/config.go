@@ -9,7 +9,7 @@ import (
 
 const defaultRunAddress = "localhost:8081"
 const defaultDatabaseURI = "postgresql://gophermart_app:qazxswedc@localhost:5432/gophermart-loyalty"
-const defaultAccrualSystemAddress = ""
+const defaultAccrualSystemAddress = "localhost:8080"
 
 type Configuration struct {
 	RunAddress           string `env:"RUN_ADDRESS"`

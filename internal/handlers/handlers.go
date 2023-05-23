@@ -3,16 +3,17 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log"
+	"net/http"
+
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/auth"
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/orders"
 	"github.com/go-chi/chi/v5"
-	"log"
-	"net/http"
 )
 
 type Handler struct {
 	*chi.Mux
-	auth             auth.Authenticator
+	authenticator    auth.Authenticator
 	orders           orders.OrderAdderGetter
 	currentUserLogin string
 	baseURL          string
@@ -22,15 +23,15 @@ func NewHandler(baseURL string, a auth.Authenticator, o orders.OrderAdderGetter)
 	log.Println("Base URL:", baseURL)
 
 	handler := &Handler{
-		Mux:     chi.NewMux(),
-		auth:    a,
-		orders:  o,
-		baseURL: baseURL,
+		Mux:           chi.NewMux(),
+		authenticator: a,
+		orders:        o,
+		baseURL:       baseURL,
 	}
 
 	handler.Route("/", func(r chi.Router) {
 		handler.Use(handler.authenticate)
-		//handler.Use(gzipHandler)
+		handler.Use(gzipHandler)
 
 		r.Post("/api/user/register", handler.registerUser)
 		r.Post("/api/user/login", handler.loginUser)

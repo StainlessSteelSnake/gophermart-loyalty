@@ -18,13 +18,13 @@ func (h *Handler) authenticate(next http.Handler) http.Handler {
 		h.currentUserLogin = ""
 
 		token := r.Header.Get("Authorization")
-		if token == "" || h.auth == nil {
+		if token == "" || h.authenticator == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		var err error
-		h.currentUserLogin, err = h.auth.Authenticate(token)
+		h.currentUserLogin, err = h.authenticator.Authenticate(token)
 		if err != nil {
 			log.Println("Пользователь не аутентифицирован")
 			http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -54,7 +54,7 @@ func (h *Handler) registerUser(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Переданные данные для регистрации пользователя:", requestBody)
 
-	token, err := h.auth.Register(requestBody.Login, requestBody.Password)
+	token, err := h.authenticator.Register(requestBody.Login, requestBody.Password)
 	if err != nil && errors.Is(err, database.DBError{Entity: requestBody.Login, Duplicate: true, Err: nil}) {
 		log.Println("Логин уже занят:", err)
 		http.Error(w, "логин уже занят: "+err.Error(), http.StatusConflict)
@@ -88,7 +88,7 @@ func (h *Handler) loginUser(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Переданные данные для авторизации пользователя:", requestBody)
 
-	token, err := h.auth.Login(requestBody.Login, requestBody.Password)
+	token, err := h.authenticator.Login(requestBody.Login, requestBody.Password)
 	if err != nil && errors.Is(err, database.DBError{Entity: requestBody.Login, Duplicate: false, Err: nil}) {
 		log.Println("Неверная пара логин/пароль:", err)
 		http.Error(w, "неверная пара логин/пароль: "+err.Error(), http.StatusUnauthorized)
