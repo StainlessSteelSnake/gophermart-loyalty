@@ -34,8 +34,8 @@ type Authenticator interface {
 	Login(string, string) (string, error)
 }
 
-func NewAuth(u UserAdderGetter) Authenticator {
-	a := authentication{userController: u, users: make(map[string]user)}
+func NewAuth(userController UserAdderGetter) Authenticator {
+	a := authentication{userController: userController, users: make(map[string]user)}
 	return &a
 }
 
@@ -62,7 +62,6 @@ func getSign(s string) (string, error) {
 }
 
 func getRandom(size int) (string, error) {
-	// генерируем случайную последовательность байт
 	b := make([]byte, size)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -72,8 +71,8 @@ func getRandom(size int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (a *authentication) createToken(l, ph string) (string, error) {
-	loginHash, err := getHash(l)
+func (a *authentication) createToken(login, passwordHash string) (string, error) {
+	loginHash, err := getHash(login)
 	if err != nil {
 		return "", err
 	}
@@ -93,8 +92,8 @@ func (a *authentication) createToken(l, ph string) (string, error) {
 	token = token + tokenSign
 
 	user := user{
-		login:        l,
-		passwordHash: ph,
+		login:        login,
+		passwordHash: passwordHash,
 		tokenSign:    tokenSign,
 		tokenFull:    token,
 	}
@@ -103,22 +102,22 @@ func (a *authentication) createToken(l, ph string) (string, error) {
 	return token, nil
 }
 
-func (a *authentication) Register(l, p string) (string, error) {
+func (a *authentication) Register(login, password string) (string, error) {
 	if a.userController == nil {
 		return "", errors.New("не задана функция создания пользователя в БД")
 	}
 
-	passwordHash, err := getHash(p)
+	passwordHash, err := getHash(password)
 	if err != nil {
 		return "", err
 	}
 
-	err = a.userController.AddUser(l, passwordHash)
+	err = a.userController.AddUser(login, passwordHash)
 	if err != nil {
 		return "", err
 	}
 
-	token, err := a.createToken(l, passwordHash)
+	token, err := a.createToken(login, passwordHash)
 	if err != nil {
 		return "", err
 	}
@@ -126,13 +125,13 @@ func (a *authentication) Register(l, p string) (string, error) {
 	return token, err
 }
 
-func (a *authentication) Login(l, p string) (string, error) {
-	passwordHash, err := a.checkPassword(l, p)
+func (a *authentication) Login(login, password string) (string, error) {
+	passwordHash, err := a.checkPassword(login, password)
 	if err != nil {
 		return "", err
 	}
 
-	token, err := a.createToken(l, passwordHash)
+	token, err := a.createToken(login, passwordHash)
 	if err != nil {
 		return "", err
 	}
@@ -140,17 +139,30 @@ func (a *authentication) Login(l, p string) (string, error) {
 	return token, nil
 }
 
-func (a *authentication) checkPassword(l, p string) (string, error) {
+func (a *authentication) checkPassword(login, password string) (string, error) {
 	if a.userController == nil {
 		return "", errors.New("не задана функция получения из БД хэша сохранённого пароля")
 	}
 
-	savedPasswordHash, err := a.userController.GetUserPassword(l)
+	loginHash, err := getHash(login)
 	if err != nil {
 		return "", err
 	}
 
-	passwordHash, err := getHash(p)
+	savedPasswordHash := ""
+	userData, userFound := a.users[loginHash]
+	if userFound {
+		savedPasswordHash = userData.passwordHash
+	}
+
+	if !userFound {
+		savedPasswordHash, err = a.userController.GetUserPassword(login)
+	}
+	if err != nil {
+		return "", err
+	}
+
+	passwordHash, err := getHash(password)
 	if err != nil {
 		return "", err
 	}
@@ -169,14 +181,14 @@ func (a *authentication) Authenticate(t string) (string, error) {
 	}
 
 	loginHash := tokenParts[0]
-	user, ok := a.users[loginHash]
-	if !ok {
+	userData, userFound := a.users[loginHash]
+	if !userFound {
 		return "", errors.New("указанный пользователь не авторизован")
 	}
 
-	if user.tokenFull != t {
+	if userData.tokenFull != t {
 		return "", errors.New("подпись токена авторизации пользователя не соответствует сохранённой")
 	}
 
-	return user.login, nil
+	return userData.login, nil
 }

@@ -30,6 +30,9 @@ func main() {
 	authenticator := auth.NewAuth(dbStorage)
 
 	orderController := orders.NewOrders(dbStorage)
+	defer orderController.Close()
+
+	orderController.ProcessOrder("12345678903")
 
 	handler := handlers.NewHandler(cfg.BaseURL, authenticator, orderController)
 

@@ -3,35 +3,68 @@ package orders
 import (
 	"errors"
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/database"
-	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
-const orderBufferSize = 10
+const (
+	processChannelCount     = 10
+	ordersToSaveChannelSize = 10
+	errorQueueSize          = 10
+	orderStatusNew          = "NEW"
+)
 
 type Order struct {
 	ID         string
 	UserLogin  string
 	Status     string
 	UploadedAt time.Time
+	Amount     int
 }
 
 type OrderAdderGetter interface {
 	AddOrder(user, order string) error
 	GetOrders(user string) ([]database.Order, error)
+	ProcessOrder(string)
+	Close()
 }
 
 type orderController struct {
-	ordersToProcess chan Order
-	model           OrderAdderGetter
-	client          http.Client
+	ordersToProcess    chan *Order
+	ordersToSave       chan *Order
+	processingChannels []chan *Order
+	errors             chan error
+	waitForRetry       bool
+	retryMutex         sync.Mutex
+	retryAfter         *sync.Cond
+
+	mu    sync.Mutex
+	pause *sync.Cond
+
+	model  OrderAdderGetter
+	client http.Client
 }
 
 func NewOrders(m OrderAdderGetter) OrderAdderGetter {
-	return &orderController{model: m, client: http.Client{}, ordersToProcess: make(chan Order, orderBufferSize)}
+	result := orderController{
+		ordersToProcess: make(chan *Order),
+		ordersToSave:    make(chan *Order, ordersToSaveChannelSize),
+		errors:          make(chan error, errorQueueSize),
+
+		model:  m,
+		client: http.Client{},
+	}
+
+	result.retryAfter = sync.NewCond(&result.retryMutex)
+
+	result.pause = sync.NewCond(&result.mu)
+
+	result.initOrderProcessing(processChannelCount)
+
+	return &result
 }
 
 func lunhChecksum(number int) int {
@@ -72,7 +105,7 @@ func (o *orderController) AddOrder(userLogin, orderID string) error {
 		return NewOrderError(orderID, false, dbError.Duplicate, dbError.User, err)
 	}
 
-	//go o.GetBonuses(orderID)
+	go o.addOrderToProcess(&Order{ID: orderID, UserLogin: userLogin, Status: orderStatusNew}, nil)
 
 	return nil
 }
@@ -84,18 +117,4 @@ func (o *orderController) GetOrders(user string) ([]database.Order, error) {
 	}
 
 	return orders, nil
-}
-
-func (o *orderController) GetBonuses(orderID string) {
-	response, err := o.client.Get("/api/orders/" + orderID)
-	if err != nil {
-		return
-	}
-
-	defer response.Body.Close()
-
-	_, err = io.ReadAll(response.Body)
-	if err != nil {
-		return
-	}
 }

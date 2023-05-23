@@ -33,4 +33,10 @@ const (
 	WHERE o.user_login = $1
 	ORDER BY o.uploaded ASC
 `
+	queryGetOrdersToProcess = `
+	SELECT id, user_login, status, uploaded
+	FROM public.orders
+	WHERE status IN ('NEW', 'PROCESSING')
+	ORDER BY uploaded ASC
+`
 )

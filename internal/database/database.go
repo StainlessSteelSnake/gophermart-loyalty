@@ -33,6 +33,8 @@ type Storager interface {
 	GetUserPassword(login string) (string, error)
 	AddOrder(user string, order string) error
 	GetOrders(user string) ([]Order, error)
+	ProcessOrder(string)
+	GetOrdersToProcess() ([]OrderToProcess, error)
 	Close()
 }
 
@@ -45,6 +47,13 @@ type Order struct {
 	Status     string         `json:"status"`
 	Accrual    int            `json:"accrual,omitempty"`
 	UploadedAt CustomDateTime `json:"uploaded_at"`
+}
+
+type OrderToProcess struct {
+	ID         string
+	UserLogin  string
+	Status     string
+	UploadedAt time.Time
 }
 
 func (c *CustomDateTime) UnmarshalJSON(b []byte) (err error) {
@@ -257,6 +266,40 @@ func (s *databaseStorage) GetOrders(user string) ([]Order, error) {
 	return result, nil
 }
 
+func (s *databaseStorage) GetOrdersToProcess() ([]OrderToProcess, error) {
+	ctx := context.Background()
+
+	rows, err := s.conn.Query(ctx, queryGetOrdersToProcess)
+	if err != nil {
+		log.Println("Ошибка при запросе заказов для обработки начисления баллов:", err)
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	result := make([]OrderToProcess, 0)
+
+	for rows.Next() {
+		var order OrderToProcess
+		err = rows.Scan(&order.ID, &order.UserLogin, &order.Status, &order.UploadedAt)
+		if err != nil {
+			log.Println("Ошибка при считывании записи заказа пользователя из списка:", err)
+			return nil, err
+		}
+
+		result = append(result, order)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Println("Ошибка при считывании записей заказов пользователя из списка:", err)
+		return nil, err
+	}
+
+	return result, nil
+
+}
+
 func (s *databaseStorage) Close() {
 	if s.conn == nil {
 		return
@@ -268,4 +311,8 @@ func (s *databaseStorage) Close() {
 		log.Println(err)
 		return
 	}
+}
+
+func (s *databaseStorage) ProcessOrder(orderID string) {
+
 }
