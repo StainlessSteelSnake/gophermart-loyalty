@@ -28,32 +28,32 @@ type databaseStorage struct {
 	locker
 }
 
-type Storager interface {
-	AddUser(userID string, password string) error
-	GetUserPassword(login string) (string, error)
-	AddOrder(user string, order string) error
-	GetOrders(user string) ([]Order, error)
-	ProcessOrder(string)
-	GetOrdersToProcess() ([]OrderToProcess, error)
-	Close()
-}
-
 type CustomDateTime struct {
 	time.Time
 }
 
 type Order struct {
+	ID         string
+	UserLogin  string
+	Status     string
+	UploadedAt time.Time
+}
+
+type OrderWithAccrual struct {
 	ID         string         `json:"number"`
 	Status     string         `json:"status"`
 	Accrual    int            `json:"accrual,omitempty"`
 	UploadedAt CustomDateTime `json:"uploaded_at"`
 }
 
-type OrderToProcess struct {
-	ID         string
-	UserLogin  string
-	Status     string
-	UploadedAt time.Time
+type Storager interface {
+	AddUser(userID string, password string) error
+	GetUserPassword(login string) (string, error)
+	AddOrder(user string, order string) error
+	GetOrders(user string) ([]OrderWithAccrual, error)
+	GetOrdersToProcess() ([]Order, error)
+	UpdateOrder([]Order) error
+	Close()
 }
 
 func (c *CustomDateTime) UnmarshalJSON(b []byte) (err error) {
@@ -145,6 +145,19 @@ func (s *databaseStorage) init(ctx context.Context) error {
 	return nil
 }
 
+func (s *databaseStorage) Close() {
+	if s.conn == nil {
+		return
+	}
+
+	ctx := context.Background()
+	err := s.conn.Close(ctx)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
 func (s *databaseStorage) AddUser(user string, password string) error {
 	s.locker.user.Lock()
 	defer s.locker.user.Unlock()
@@ -233,7 +246,7 @@ func (s *databaseStorage) AddOrder(user, order string) error {
 	return nil
 }
 
-func (s *databaseStorage) GetOrders(user string) ([]Order, error) {
+func (s *databaseStorage) GetOrders(user string) ([]OrderWithAccrual, error) {
 	ctx := context.Background()
 
 	rows, err := s.conn.Query(ctx, queryGetOrdersByUser, user)
@@ -244,10 +257,10 @@ func (s *databaseStorage) GetOrders(user string) ([]Order, error) {
 
 	defer rows.Close()
 
-	result := make([]Order, 0)
+	result := make([]OrderWithAccrual, 0)
 
 	for rows.Next() {
-		var order Order
+		var order OrderWithAccrual
 		err = rows.Scan(&order.ID, &order.Status, &order.Accrual, &order.UploadedAt.Time)
 		if err != nil {
 			log.Println("Ошибка при считывании записи заказа пользователя из списка:", err)
@@ -266,7 +279,7 @@ func (s *databaseStorage) GetOrders(user string) ([]Order, error) {
 	return result, nil
 }
 
-func (s *databaseStorage) GetOrdersToProcess() ([]OrderToProcess, error) {
+func (s *databaseStorage) GetOrdersToProcess() ([]Order, error) {
 	ctx := context.Background()
 
 	rows, err := s.conn.Query(ctx, queryGetOrdersToProcess)
@@ -277,10 +290,10 @@ func (s *databaseStorage) GetOrdersToProcess() ([]OrderToProcess, error) {
 
 	defer rows.Close()
 
-	result := make([]OrderToProcess, 0)
+	result := make([]Order, 0)
 
 	for rows.Next() {
-		var order OrderToProcess
+		var order Order
 		err = rows.Scan(&order.ID, &order.UserLogin, &order.Status, &order.UploadedAt)
 		if err != nil {
 			log.Println("Ошибка при считывании записи заказа пользователя из списка:", err)
@@ -300,19 +313,6 @@ func (s *databaseStorage) GetOrdersToProcess() ([]OrderToProcess, error) {
 
 }
 
-func (s *databaseStorage) Close() {
-	if s.conn == nil {
-		return
-	}
-
-	ctx := context.Background()
-	err := s.conn.Close(ctx)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-}
-
-func (s *databaseStorage) ProcessOrder(orderID string) {
-
+func (s *databaseStorage) UpdateOrder(orders []Order) error {
+	return nil
 }

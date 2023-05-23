@@ -3,7 +3,6 @@ package orders
 import (
 	"errors"
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/database"
-	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -89,23 +88,24 @@ func lunhChecksum(number int) int {
 func (o *orderController) AddOrder(userLogin, orderID string) error {
 	orderNumber, err := strconv.Atoi(orderID)
 	if err != nil {
-		log.Println("номер заказа содержит символы, отличные от цифр")
 		return NewOrderError(orderID, true, false, userLogin, errors.New("номер заказа содержит символы, отличные от цифр"))
 	}
 
 	if (orderNumber%10+lunhChecksum(orderNumber/10))%10 != 0 {
-		log.Println("контрольное число указано неправильно в номере заказа")
 		return NewOrderError(orderID, true, false, userLogin, errors.New("контрольное число указано неправильно в номере заказа"))
 	}
 
 	var dbError *database.DBError
 	err = o.model.AddOrder(userLogin, orderID)
 	if err != nil && errors.As(err, &dbError) {
-		log.Println("Ошибка при добавлении заказа в БД:", err)
 		return NewOrderError(orderID, false, dbError.Duplicate, dbError.User, err)
 	}
 
-	go o.addOrderToProcess(&Order{ID: orderID, UserLogin: userLogin, Status: orderStatusNew}, nil)
+	if err != nil {
+		return err
+	}
+
+	//go o.addOrderToProcess(&Order{ID: orderID, UserLogin: userLogin, Status: orderStatusNew}, nil)
 
 	return nil
 }
