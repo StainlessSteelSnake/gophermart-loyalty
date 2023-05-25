@@ -34,9 +34,13 @@ type Authenticator interface {
 	Login(string, string) (string, error)
 }
 
-func NewAuth(userController UserAdderGetter) Authenticator {
+func NewAuth(userController UserAdderGetter) (Authenticator, error) {
+	if userController == nil {
+		return nil, errors.New("не задана функция создания пользователя в БД")
+	}
+
 	a := authentication{userController: userController, users: make(map[string]user)}
-	return &a
+	return &a, nil
 }
 
 func getHash(s string) (string, error) {
@@ -103,10 +107,6 @@ func (a *authentication) createToken(login, passwordHash string) (string, error)
 }
 
 func (a *authentication) Register(login, password string) (string, error) {
-	if a.userController == nil {
-		return "", errors.New("не задана функция создания пользователя в БД")
-	}
-
 	passwordHash, err := getHash(password)
 	if err != nil {
 		return "", err
@@ -140,10 +140,6 @@ func (a *authentication) Login(login, password string) (string, error) {
 }
 
 func (a *authentication) checkPassword(login, password string) (string, error) {
-	if a.userController == nil {
-		return "", errors.New("не задана функция получения из БД хэша сохранённого пароля")
-	}
-
 	loginHash, err := getHash(login)
 	if err != nil {
 		return "", err

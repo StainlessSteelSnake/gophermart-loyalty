@@ -26,8 +26,7 @@ type Order struct {
 
 type OrderAdderGetter interface {
 	AddOrder(user, order string) error
-	GetOrders(user string) ([]database.Order, error)
-	ProcessOrder(string)
+	GetOrders(user string) ([]database.OrderWithAccrual, error)
 	Close()
 }
 
@@ -110,7 +109,7 @@ func (o *orderController) AddOrder(userLogin, orderID string) error {
 	return nil
 }
 
-func (o *orderController) GetOrders(user string) ([]database.Order, error) {
+func (o *orderController) GetOrders(user string) ([]database.OrderWithAccrual, error) {
 	orders, err := o.model.GetOrders(user)
 	if err != nil {
 		return nil, err

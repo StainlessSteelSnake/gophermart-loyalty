@@ -159,9 +159,6 @@ func (s *databaseStorage) Close() {
 }
 
 func (s *databaseStorage) AddUser(user string, password string) error {
-	s.locker.user.Lock()
-	defer s.locker.user.Unlock()
-
 	log.Printf("Добавление в БД пользователя '%v' с хэшем пароля '%v'\n", user, password)
 
 	ctx := context.Background()
@@ -179,7 +176,7 @@ func (s *databaseStorage) AddUser(user string, password string) error {
 
 	if err != nil {
 		log.Println("Ошибка при добавлении пользователя в БД, код:", pgErr.Code, ", сообщение:", pgErr.Error())
-		return NewDBError(user, user, false, true, err)
+		return NewDBUserError(user, false, true, err)
 	}
 
 	log.Println("Добавлено записей пользователей в таблицу БД:", ct.RowsAffected())
@@ -187,9 +184,6 @@ func (s *databaseStorage) AddUser(user string, password string) error {
 }
 
 func (s *databaseStorage) GetUserPassword(user string) (string, error) {
-	s.locker.user.RLock()
-	defer s.locker.user.RUnlock()
-
 	var passwordHash string
 	ctx := context.Background()
 
@@ -197,16 +191,13 @@ func (s *databaseStorage) GetUserPassword(user string) (string, error) {
 	err := row.Scan(&passwordHash)
 	if err != nil {
 		log.Println("Ошибка при считывании пароля пользователя из БД:", err)
-		return "", NewDBError(user, user, false, false, err)
+		return "", NewDBUserError(user, false, false, err)
 	}
 
 	return passwordHash, nil
 }
 
 func (s *databaseStorage) AddOrder(user, order string) error {
-	s.locker.orders.Lock()
-	defer s.locker.orders.Unlock()
-
 	log.Printf("Добавление в БД заказа '%v' для пользователя '%v'\n", order, user)
 
 	ctx := context.Background()
@@ -234,11 +225,11 @@ func (s *databaseStorage) AddOrder(user, order string) error {
 
 		if orderUser != user {
 			log.Println("Заказ '" + order + "' уже был загружен ранее другим пользователем '" + orderUser + "'")
-			return NewDBError(order, orderUser, true, true, errors.New("заказ '"+order+"' уже был загружен ранее другим пользователем"))
+			return NewDBOrderError(order, orderUser, true, true, errors.New("заказ '"+order+"' уже был загружен ранее другим пользователем"))
 		}
 
 		log.Println("Заказ '" + order + "' уже был загружен ранее текущим пользователем '" + user + "'")
-		return NewDBError(order, user, false, true, errors.New("заказ '"+order+"' уже был загружен ранее текущим пользователем '"+user+"'"))
+		return NewDBOrderError(order, user, false, true, errors.New("заказ '"+order+"' уже был загружен ранее текущим пользователем '"+user+"'"))
 
 	}
 
@@ -280,9 +271,6 @@ func (s *databaseStorage) GetOrders(user string) ([]OrderWithAccrual, error) {
 }
 
 func (s *databaseStorage) GetOrdersToProcess() ([]Order, error) {
-	s.locker.orders.RLock()
-	defer s.locker.orders.RUnlock()
-
 	ctx := context.Background()
 
 	rows, err := s.conn.Query(ctx, queryGetOrdersToProcess)
@@ -316,8 +304,5 @@ func (s *databaseStorage) GetOrdersToProcess() ([]Order, error) {
 }
 
 func (s *databaseStorage) UpdateOrder(order Order, accrual int) error {
-	s.orders.Lock()
-	defer s.orders.Unlock()
-
 	return nil
 }

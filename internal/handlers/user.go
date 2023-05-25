@@ -55,7 +55,7 @@ func (h *Handler) registerUser(w http.ResponseWriter, r *http.Request) {
 	log.Println("Переданные данные для регистрации пользователя:", requestBody)
 
 	token, err := h.authenticator.Register(requestBody.Login, requestBody.Password)
-	if err != nil && errors.Is(err, database.DBError{Entity: requestBody.Login, Duplicate: true, Err: nil}) {
+	if err != nil && errors.Is(err, database.DBUserError{User: requestBody.Login, Duplicate: true, Err: nil}) {
 		log.Println("Логин уже занят:", err)
 		http.Error(w, "логин уже занят: "+err.Error(), http.StatusConflict)
 		return
@@ -89,7 +89,7 @@ func (h *Handler) loginUser(w http.ResponseWriter, r *http.Request) {
 	log.Println("Переданные данные для авторизации пользователя:", requestBody)
 
 	token, err := h.authenticator.Login(requestBody.Login, requestBody.Password)
-	if err != nil && errors.Is(err, database.DBError{Entity: requestBody.Login, Duplicate: false, Err: nil}) {
+	if err != nil && errors.Is(err, database.DBUserError{User: requestBody.Login, Duplicate: false, Err: nil}) {
 		log.Println("Неверная пара логин/пароль:", err)
 		http.Error(w, "неверная пара логин/пароль: "+err.Error(), http.StatusUnauthorized)
 		return
