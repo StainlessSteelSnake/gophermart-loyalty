@@ -94,7 +94,7 @@ func (o *orderController) AddOrder(userLogin, orderID string) error {
 		return NewOrderError(orderID, true, false, userLogin, errors.New("контрольное число указано неправильно в номере заказа"))
 	}
 
-	var dbError *database.DBError
+	var dbError *database.DBOrderError
 	err = o.model.AddOrder(userLogin, orderID)
 	if err != nil && errors.As(err, &dbError) {
 		return NewOrderError(orderID, false, dbError.Duplicate, dbError.User, err)

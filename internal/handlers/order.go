@@ -28,7 +28,7 @@ func (h *Handler) addOrder(w http.ResponseWriter, r *http.Request) {
 	err = h.orders.AddOrder(h.currentUserLogin, orderID)
 
 	if err != nil && errors.As(err, &orderError) {
-		log.Println(err)
+		log.Println("!", err)
 
 		switch {
 		case orderError.IncorrectID:
