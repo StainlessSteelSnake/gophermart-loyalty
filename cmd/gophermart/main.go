@@ -32,7 +32,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	orderController := orders.NewOrders(dbStorage)
+	orderController, err := orders.NewOrders(dbStorage, cfg.AccrualSystemAddress)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer orderController.Close()
 
 	//orderController.ProcessOrder("12345678903")

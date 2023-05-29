@@ -5,7 +5,6 @@ import (
 	"github.com/StainlessSteelSnake/gophermart-loyalty/internal/database"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -13,7 +12,7 @@ const (
 	processChannelCount     = 10
 	ordersToSaveChannelSize = 10
 	errorQueueSize          = 10
-	orderStatusNew          = "NEW"
+	orderStatusNew          = "REGISTERED"
 )
 
 type Order struct {
@@ -31,23 +30,33 @@ type OrderAdderGetter interface {
 }
 
 type orderController struct {
+	accrualSystemAddress string
+
 	ordersToProcess    chan *Order
-	ordersToSave       chan *Order
 	processingChannels []chan *Order
+	ordersToSave       chan *Order
 	errors             chan error
-	waitForRetry       bool
-	retryMutex         sync.Mutex
-	retryAfter         *sync.Cond
+	done               chan struct{}
+	/*
+		waitForRetry bool
+		retryMutex   sync.Mutex
+		retryAfter   *sync.Cond
 
-	mu    sync.Mutex
-	pause *sync.Cond
-
-	model  OrderAdderGetter
+		mu    sync.Mutex
+		pause *sync.Cond
+	*/
+	model  database.Storager
 	client http.Client
 }
 
-func NewOrders(m OrderAdderGetter) OrderAdderGetter {
+func NewOrders(m database.Storager, accrualSystemAddress string) (OrderAdderGetter, error) {
+	if len(accrualSystemAddress) == 0 {
+		return nil, errors.New("не задан путь к серверу расчёта баллов лояльности")
+	}
+
 	result := orderController{
+		accrualSystemAddress: accrualSystemAddress,
+
 		ordersToProcess: make(chan *Order),
 		ordersToSave:    make(chan *Order, ordersToSaveChannelSize),
 		errors:          make(chan error, errorQueueSize),
@@ -56,13 +65,14 @@ func NewOrders(m OrderAdderGetter) OrderAdderGetter {
 		client: http.Client{},
 	}
 
-	result.retryAfter = sync.NewCond(&result.retryMutex)
-
-	result.pause = sync.NewCond(&result.mu)
+	/*
+		result.retryAfter = sync.NewCond(&result.retryMutex)
+		result.pause = sync.NewCond(&result.mu)
+	*/
 
 	result.initOrderProcessing(processChannelCount)
 
-	return &result
+	return &result, nil
 }
 
 func lunhChecksum(number int) int {
@@ -103,8 +113,6 @@ func (o *orderController) AddOrder(userLogin, orderID string) error {
 	if err != nil {
 		return err
 	}
-
-	//go o.addOrderToProcess(&Order{ID: orderID, UserLogin: userLogin, Status: orderStatusNew}, nil)
 
 	return nil
 }

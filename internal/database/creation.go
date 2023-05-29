@@ -51,14 +51,12 @@ const sqlCreateTableAccounts = `
 const sqlCreateTableTransactions = `
 	CREATE TABLE IF NOT EXISTS public.transactions
 	(
-		uuid uuid NOT NULL,
 		order_number character varying COLLATE pg_catalog."default" NOT NULL,
+		user_login character varying COLLATE pg_catalog."default" NOT NULL,
 		type character varying(10) COLLATE pg_catalog."default" NOT NULL,
 		amount integer NOT NULL DEFAULT 0,
 		created_at timestamp with time zone NOT NULL,
-		status character varying(10) COLLATE pg_catalog."default" NOT NULL,
-		user_login character varying COLLATE pg_catalog."default" NOT NULL,
-		CONSTRAINT transactions_pkey PRIMARY KEY (uuid)
+		CONSTRAINT transactions_pkey PRIMARY KEY (order_number)
 	)
 	
 	TABLESPACE pg_default;

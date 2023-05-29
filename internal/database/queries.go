@@ -6,13 +6,14 @@ const (
 	    (
 			login, password
 		)
-	VALUES ($1, $2);
+	VALUES ($1, $2)
 `
 	querySelectPassword = `
 	SELECT password 
 	FROM public.users
 	WHERE login = $1
 `
+
 	queryInsertOrder = `
 	INSERT INTO public.orders
 		(
@@ -38,5 +39,39 @@ const (
 	FROM public.orders
 	WHERE status IN ('NEW', 'PROCESSING')
 	ORDER BY uploaded ASC
+`
+	queryUpdateOrder = `
+	UPDATE public.orders
+	SET status = $2
+	WHERE id = $1
+`
+
+	queryInsertUserAccount = `
+	INSERT INTO public.accounts
+	    (
+			user_login, balance, withdrawn
+		)
+	VALUES ($1, $2, $3)
+`
+	queryGetUserAccount = `
+	SELECT user_login, balance, withdrawn
+	FROM public.accounts
+	WHERE user_login = $1
+`
+	queryUpdateUserAccount = `
+	UPDATE public.accounts
+	SET balance = $2, withdrawn = $3
+	WHERE user_login = $1
+`
+
+	queryInsertTransaction = `
+	INSERT INTO public.transactions
+	( order_number, user_login, type, amount, created_at)
+	VALUES ($1, $2, $3, $4, $5, $6)
+`
+	queryGetTransaction = `
+	SELECT order_number, user_login, type, amount, created_at
+	FROM  public.transactions
+	WHERE order_number = $1
 `
 )

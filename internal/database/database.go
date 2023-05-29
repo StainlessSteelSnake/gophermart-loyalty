@@ -15,7 +15,9 @@ import (
 )
 
 const (
-	dbExistError = "42601"
+	transactionTypeAccrual    = "ACCRUAL"
+	transactionTypeWithdrawal = "WITHDRAWAL"
+	dbExistError              = "42601"
 )
 
 type locker struct {
@@ -46,13 +48,29 @@ type OrderWithAccrual struct {
 	UploadedAt CustomDateTime `json:"uploaded_at"`
 }
 
+type Account struct {
+	UserLogin string
+	Balance   int
+	Withdrawn int
+}
+
+type Transaction struct {
+	OrderNumber string
+	UserLogin   string
+	Type        string
+	Amount      int
+	CreatedAt   time.Time
+}
+
 type Storager interface {
 	AddUser(userID string, password string) error
 	GetUserPassword(login string) (string, error)
+
 	AddOrder(user string, order string) error
 	GetOrders(user string) ([]OrderWithAccrual, error)
 	GetOrdersToProcess() ([]Order, error)
-	UpdateOrder(Order, int) error
+	UpdateOrder(*Order, int) error
+
 	Close()
 }
 
@@ -163,6 +181,7 @@ func (s *databaseStorage) AddUser(user string, password string) error {
 
 	ctx := context.Background()
 	var pgErr *pgconn.PgError
+
 	ct, err := s.conn.Exec(ctx, queryInsertUser, user, password)
 	if err != nil && !errors.As(err, &pgErr) {
 		log.Println("Ошибка при добавлении пользователя в БД:", err)
@@ -177,6 +196,12 @@ func (s *databaseStorage) AddUser(user string, password string) error {
 	if err != nil {
 		log.Println("Ошибка при добавлении пользователя в БД, код:", pgErr.Code, ", сообщение:", pgErr.Error())
 		return NewDBUserError(user, false, true, err)
+	}
+
+	ct, err = s.conn.Exec(ctx, queryInsertUserAccount, user, 0, 0)
+	if err != nil {
+		log.Println("Ошибка при добавлении балльного счёта пользователя в БД:", err)
+		return err
 	}
 
 	log.Println("Добавлено записей пользователей в таблицу БД:", ct.RowsAffected())
@@ -202,6 +227,7 @@ func (s *databaseStorage) AddOrder(user, order string) error {
 
 	ctx := context.Background()
 	var pgErr *pgconn.PgError
+
 	ct, err := s.conn.Exec(ctx, queryInsertOrder, order, user, time.Now())
 	if err != nil && !errors.As(err, &pgErr) {
 		log.Println("Ошибка при добавлении заказа '"+order+"' под пользователем '"+user+"' в БД:", err)
@@ -303,6 +329,127 @@ func (s *databaseStorage) GetOrdersToProcess() ([]Order, error) {
 	return result, nil
 }
 
-func (s *databaseStorage) UpdateOrder(order Order, accrual int) error {
+func (s *databaseStorage) UpdateOrder(order *Order, amount int) error {
+	log.Printf("Обновление заказа '%v' пользователя '%v', статус '%v'\n", order.ID, order.UserLogin, order.Status)
+
+	s.locker.account.Lock()
+	defer s.locker.account.Unlock()
+
+	account, err := s.getUserAccount(order.UserLogin)
+	if err != nil {
+		log.Println("Ошибка при обновлении заказа "+order.ID+":", err)
+		return err
+	}
+
+	transaction, err := s.getTransaction(order.ID)
+	if err != nil {
+		log.Println("Ошибка при обновлении заказа "+order.ID+":", err)
+		return err
+	}
+
+	if amount > 0 && transaction != nil && transaction.Type == transactionTypeAccrual {
+		err = errors.New("Для заказа " + order.ID + " уже существует транзакция начисления от " + transaction.CreatedAt.String())
+		return err
+	}
+
+	ctx := context.Background()
+
+	_, err = s.conn.Exec(ctx, queryUpdateOrder, order.ID, order.Status)
+	if err != nil {
+		log.Println("Ошибка при обновлении заказа "+order.ID+":", err)
+		return err
+	}
+
+	if amount > 0 {
+		account.Balance += amount
+
+		transaction = &Transaction{
+			OrderNumber: order.ID,
+			UserLogin:   order.UserLogin,
+			Type:        transactionTypeAccrual,
+			Amount:      amount,
+			CreatedAt:   time.Now(),
+		}
+
+		_, err = s.conn.Exec(ctx, queryUpdateUserAccount, account.UserLogin, account.Balance, account.Withdrawn)
+		if err != nil {
+			log.Println("Ошибка при обновлении заказа "+order.ID+":", err)
+			return err
+		}
+
+		_, err = s.conn.Exec(ctx, queryInsertTransaction, transaction.OrderNumber, transaction.UserLogin, transaction.Type, transaction.Amount, transaction.CreatedAt)
+		if err != nil {
+			log.Println("Ошибка при обновлении заказа "+order.ID+":", err)
+			return err
+		}
+	}
+
+	log.Println("Заказ " + order.ID + " успешно обновлён")
+	return nil
+}
+
+func (s *databaseStorage) getUserAccount(user string) (*Account, error) {
+	log.Printf("Получение балльного счёта пользователя '%v'\n", user)
+
+	ctx := context.Background()
+	var account Account
+
+	row := s.conn.QueryRow(ctx, queryGetUserAccount, user)
+	err := row.Scan(&account.UserLogin, &account.Balance, &account.Withdrawn)
+	if err != nil {
+		log.Println("Ошибка при считывании балльного счёта пользователя "+user+" из БД:", err)
+		return nil, err
+	}
+
+	return &account, nil
+}
+
+func (s *databaseStorage) updateUserAccount(account *Account) error {
+	log.Printf("Обновление балльного счёта пользователя '%v', баланс '%v', всего списано '%v'\n", account.UserLogin, account.Balance, account.Withdrawn)
+
+	ctx := context.Background()
+
+	_, err := s.conn.Exec(ctx, queryUpdateUserAccount, account.UserLogin, account.Balance, account.Withdrawn)
+	if err != nil {
+		log.Println("Ошибка при обновлении балльного счёта пользователя:", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *databaseStorage) getTransaction(orderID string) (*Transaction, error) {
+	log.Printf("Получение транзакции по заказу '%v'\n", orderID)
+
+	ctx := context.Background()
+	var transaction Transaction
+
+	row := s.conn.QueryRow(ctx, queryGetTransaction, orderID)
+	err := row.Scan(&transaction.OrderNumber, &transaction.UserLogin, &transaction.Type, &transaction.Amount, &transaction.CreatedAt)
+
+	if err != nil && err == pgx.ErrNoRows {
+		log.Println("Транзакции по заказу " + orderID + " не найдены")
+		return nil, nil
+	}
+
+	if err != nil {
+		log.Println("Ошибка при считывании транзакции по заказу "+orderID+" из БД:", err)
+		return nil, err
+	}
+
+	return &transaction, nil
+}
+
+func (s *databaseStorage) addTransaction(transaction *Transaction) error {
+	log.Printf("Добавление транзакции для заказа '%v', пользователя '%v', тип '%v', сумма '%v'\n", transaction.OrderNumber, transaction.UserLogin, transaction.Type, transaction.Amount)
+
+	ctx := context.Background()
+
+	_, err := s.conn.Exec(ctx, queryInsertTransaction, transaction.OrderNumber, transaction.UserLogin, transaction.Type, transaction.Amount, transaction.CreatedAt)
+	if err != nil {
+		log.Println("Ошибка при добавлении транзакции:", err)
+		return err
+	}
+
 	return nil
 }
