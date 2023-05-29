@@ -21,7 +21,7 @@ const (
 )
 
 type locker struct {
-	user, orders, transactions, account sync.RWMutex
+	user, account sync.RWMutex
 }
 
 type databaseStorage struct {
@@ -44,21 +44,21 @@ type Order struct {
 type OrderWithAccrual struct {
 	ID         string         `json:"number"`
 	Status     string         `json:"status"`
-	Accrual    int            `json:"accrual,omitempty"`
+	Accrual    float32        `json:"accrual,omitempty"`
 	UploadedAt CustomDateTime `json:"uploaded_at"`
 }
 
 type Account struct {
 	UserLogin string
-	Balance   int
-	Withdrawn int
+	Balance   float32
+	Withdrawn float32
 }
 
 type Transaction struct {
 	OrderNumber string
 	UserLogin   string
 	Type        string
-	Amount      int
+	Amount      float32
 	CreatedAt   time.Time
 }
 
@@ -69,7 +69,7 @@ type Storager interface {
 	AddOrder(user string, order string) error
 	GetOrders(user string) ([]OrderWithAccrual, error)
 	GetOrdersToProcess() ([]Order, error)
-	UpdateOrder(*Order, int) error
+	UpdateOrder(*Order, float32) error
 
 	Close()
 }
@@ -329,7 +329,7 @@ func (s *databaseStorage) GetOrdersToProcess() ([]Order, error) {
 	return result, nil
 }
 
-func (s *databaseStorage) UpdateOrder(order *Order, amount int) error {
+func (s *databaseStorage) UpdateOrder(order *Order, amount float32) error {
 	log.Printf("Обновление заказа '%v' пользователя '%v', статус '%v'\n", order.ID, order.UserLogin, order.Status)
 
 	s.locker.account.Lock()

@@ -40,8 +40,8 @@ const sqlCreateTableAccounts = `
 	CREATE TABLE IF NOT EXISTS public.accounts
 	(
 		user_login character varying COLLATE pg_catalog."default" NOT NULL,
-		balance integer NOT NULL DEFAULT 0,
-		withdrawn integer NOT NULL DEFAULT 0,
+		balance real NOT NULL DEFAULT 0,
+		withdrawn real NOT NULL DEFAULT 0,
 		CONSTRAINT accounts_pkey PRIMARY KEY (user_login)
 	)
 	
@@ -54,7 +54,7 @@ const sqlCreateTableTransactions = `
 		order_number character varying COLLATE pg_catalog."default" NOT NULL,
 		user_login character varying COLLATE pg_catalog."default" NOT NULL,
 		type character varying(10) COLLATE pg_catalog."default" NOT NULL,
-		amount integer NOT NULL DEFAULT 0,
+		amount real NOT NULL DEFAULT 0,
 		created_at timestamp with time zone NOT NULL,
 		CONSTRAINT transactions_pkey PRIMARY KEY (order_number)
 	)

@@ -11,9 +11,9 @@ import (
 )
 
 type OrderBonuses struct {
-	ID          string `json:"order"`
-	Status      string `json:"status"`
-	BonusAmount int    `json:"accrual"`
+	ID          string  `json:"order"`
+	Status      string  `json:"status"`
+	BonusAmount float32 `json:"accrual"`
 }
 
 func (o *orderController) initOrderProcessing(channelCount int) {
@@ -168,7 +168,7 @@ func (o *orderController) processOrder(order *Order) {
 		return
 	}
 
-	o.errors <- errors.New("Получены статус " + orderBonuses.Status + " по заказу " + orderBonuses.ID + ". Кол-во начисленных бонусов: " + strconv.Itoa(orderBonuses.BonusAmount) + ".")
+	o.errors <- errors.New("Получен статус " + orderBonuses.Status + " по заказу " + orderBonuses.ID + ". Кол-во начисленных бонусов: " + strconv.FormatFloat(float64(orderBonuses.BonusAmount), 'E', -1, 32) + ".")
 	if orderBonuses.Status != orderStatusNew {
 		orderToSave := &Order{
 			ID:         orderBonuses.ID,

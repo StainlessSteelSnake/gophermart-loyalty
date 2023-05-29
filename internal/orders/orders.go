@@ -20,7 +20,7 @@ type Order struct {
 	UserLogin  string
 	Status     string
 	UploadedAt time.Time
-	Amount     int
+	Amount     float32
 }
 
 type OrderAdderGetter interface {
