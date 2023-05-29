@@ -163,6 +163,7 @@ func (o *orderController) WithdrawForOrder(user string, orderID string, amount f
 	}
 
 	account.Balance -= amount
+	account.Withdrawn += amount
 
 	err = o.model.UpdateUserAccount(account)
 	if err != nil {
