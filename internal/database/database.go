@@ -49,9 +49,9 @@ type OrderWithAccrual struct {
 }
 
 type Account struct {
-	UserLogin string
-	Balance   float32
-	Withdrawn float32
+	UserLogin string  `json:"-"`
+	Balance   float32 `json:"current"`
+	Withdrawn float32 `json:"withdrawn"`
 }
 
 type Transaction struct {
@@ -70,6 +70,8 @@ type Storager interface {
 	GetOrders(user string) ([]OrderWithAccrual, error)
 	GetOrdersToProcess() ([]Order, error)
 	UpdateOrder(*Order, float32) error
+
+	GetUserAccount(user string) (*Account, error)
 
 	Close()
 }
@@ -335,7 +337,7 @@ func (s *databaseStorage) UpdateOrder(order *Order, amount float32) error {
 	s.locker.account.Lock()
 	defer s.locker.account.Unlock()
 
-	account, err := s.getUserAccount(order.UserLogin)
+	account, err := s.GetUserAccount(order.UserLogin)
 	if err != nil {
 		log.Println("Ошибка при обновлении заказа "+order.ID+":", err)
 		return err
@@ -388,7 +390,7 @@ func (s *databaseStorage) UpdateOrder(order *Order, amount float32) error {
 	return nil
 }
 
-func (s *databaseStorage) getUserAccount(user string) (*Account, error) {
+func (s *databaseStorage) GetUserAccount(user string) (*Account, error) {
 	log.Printf("Получение балльного счёта пользователя '%v'\n", user)
 
 	ctx := context.Background()

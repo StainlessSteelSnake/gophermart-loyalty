@@ -26,27 +26,22 @@ type Order struct {
 type OrderAdderGetter interface {
 	AddOrder(user, order string) error
 	GetOrders(user string) ([]database.OrderWithAccrual, error)
+	GetUserAccount(user string) (*database.Account, error)
+
 	Close()
 }
 
 type orderController struct {
 	accrualSystemAddress string
 
+	model  database.Storager
+	client http.Client
+
 	ordersToProcess    chan *Order
 	processingChannels []chan *Order
 	ordersToSave       chan *Order
 	errors             chan error
 	done               chan struct{}
-	/*
-		waitForRetry bool
-		retryMutex   sync.Mutex
-		retryAfter   *sync.Cond
-
-		mu    sync.Mutex
-		pause *sync.Cond
-	*/
-	model  database.Storager
-	client http.Client
 }
 
 func NewOrders(m database.Storager, accrualSystemAddress string) (OrderAdderGetter, error) {
@@ -124,4 +119,13 @@ func (o *orderController) GetOrders(user string) ([]database.OrderWithAccrual, e
 	}
 
 	return orders, nil
+}
+
+func (o *orderController) GetUserAccount(user string) (*database.Account, error) {
+	account, err := o.model.GetUserAccount(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return account, nil
 }
