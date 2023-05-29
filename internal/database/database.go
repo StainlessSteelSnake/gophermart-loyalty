@@ -379,13 +379,13 @@ func (s *databaseStorage) UpdateOrder(order *Order, amount float32) error {
 
 		_, err = s.conn.Exec(ctx, queryUpdateUserAccount, account.UserLogin, account.Balance, account.Withdrawn)
 		if err != nil {
-			log.Println("Ошибка при обновлении заказа "+order.ID+":", err)
+			log.Println("Ошибка при обновлении баланса пользователя при обработке заказа "+order.ID+":", err)
 			return err
 		}
 
-		_, err = s.conn.Exec(ctx, queryInsertTransaction, transaction.OrderNumber, transaction.UserLogin, transaction.Type, transaction.Amount, transaction.CreatedAt)
+		_, err = s.conn.Exec(ctx, queryInsertTransaction, transaction.OrderNumber, transaction.UserLogin, transaction.Type, transaction.Amount, transaction.CreatedAt.Time)
 		if err != nil {
-			log.Println("Ошибка при обновлении заказа "+order.ID+":", err)
+			log.Println("Ошибка при создании транзакции начисления обработке заказа "+order.ID+":", err)
 			return err
 		}
 	}
