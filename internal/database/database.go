@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	transactionTypeAccrual    = "ACCRUAL"
-	transactionTypeWithdrawal = "WITHDRAWAL"
+	TransactionTypeAccrual    = "ACCRUAL"
+	TransactionTypeWithdrawal = "WITHDRAWAL"
 	dbExistError              = "42601"
 )
 
@@ -70,6 +70,9 @@ type Storager interface {
 	GetOrders(user string) ([]OrderWithAccrual, error)
 	GetOrdersToProcess() ([]Order, error)
 	UpdateOrder(*Order, float32) error
+
+	AddTransaction(transaction *Transaction) error
+	UpdateUserAccount(account *Account) error
 
 	GetUserAccount(user string) (*Account, error)
 
@@ -349,7 +352,7 @@ func (s *databaseStorage) UpdateOrder(order *Order, amount float32) error {
 		return err
 	}
 
-	if amount > 0 && transaction != nil && transaction.Type == transactionTypeAccrual {
+	if amount > 0 && transaction != nil && transaction.Type == TransactionTypeAccrual {
 		err = errors.New("Для заказа " + order.ID + " уже существует транзакция начисления от " + transaction.CreatedAt.String())
 		return err
 	}
@@ -368,7 +371,7 @@ func (s *databaseStorage) UpdateOrder(order *Order, amount float32) error {
 		transaction = &Transaction{
 			OrderNumber: order.ID,
 			UserLogin:   order.UserLogin,
-			Type:        transactionTypeAccrual,
+			Type:        TransactionTypeAccrual,
 			Amount:      amount,
 			CreatedAt:   time.Now(),
 		}
@@ -406,7 +409,7 @@ func (s *databaseStorage) GetUserAccount(user string) (*Account, error) {
 	return &account, nil
 }
 
-func (s *databaseStorage) updateUserAccount(account *Account) error {
+func (s *databaseStorage) UpdateUserAccount(account *Account) error {
 	log.Printf("Обновление балльного счёта пользователя '%v', баланс '%v', всего списано '%v'\n", account.UserLogin, account.Balance, account.Withdrawn)
 
 	ctx := context.Background()
@@ -442,7 +445,7 @@ func (s *databaseStorage) getTransaction(orderID string) (*Transaction, error) {
 	return &transaction, nil
 }
 
-func (s *databaseStorage) addTransaction(transaction *Transaction) error {
+func (s *databaseStorage) AddTransaction(transaction *Transaction) error {
 	log.Printf("Добавление транзакции для заказа '%v', пользователя '%v', тип '%v', сумма '%v'\n", transaction.OrderNumber, transaction.UserLogin, transaction.Type, transaction.Amount)
 
 	ctx := context.Background()

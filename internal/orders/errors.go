@@ -5,11 +5,12 @@ import (
 )
 
 type OrderError struct {
-	OrderID     string
-	IncorrectID bool
-	Duplicate   bool
-	User        string
-	Err         error
+	OrderID           string
+	IncorrectID       bool
+	Duplicate         bool
+	InsufficientFunds bool
+	User              string
+	Err               error
 }
 
 func (e OrderError) Error() string {
@@ -34,12 +35,13 @@ func (e OrderError) Is(target error) bool {
 	return true
 }
 
-func NewOrderError(orderID string, incorrectID, duplicate bool, user string, err error) error {
+func NewOrderError(orderID string, incorrectID, duplicate, insufficientFunds bool, user string, err error) error {
 	return &OrderError{
-		OrderID:     orderID,
-		IncorrectID: incorrectID,
-		Duplicate:   duplicate,
-		User:        user,
-		Err:         err,
+		OrderID:           orderID,
+		IncorrectID:       incorrectID,
+		Duplicate:         duplicate,
+		InsufficientFunds: insufficientFunds,
+		User:              user,
+		Err:               err,
 	}
 }

@@ -27,7 +27,7 @@ type OrderAdderGetter interface {
 	AddOrder(user, order string) error
 	GetOrders(user string) ([]database.OrderWithAccrual, error)
 	GetUserAccount(user string) (*database.Account, error)
-
+	WithdrawForOrder(user, orderID string, amount float32) error
 	Close()
 }
 
@@ -89,20 +89,20 @@ func lunhChecksum(number int) int {
 	return luhh % 10
 }
 
-func (o *orderController) AddOrder(userLogin, orderID string) error {
+func (o *orderController) AddOrder(user, orderID string) error {
 	orderNumber, err := strconv.Atoi(orderID)
 	if err != nil {
-		return NewOrderError(orderID, true, false, userLogin, errors.New("номер заказа содержит символы, отличные от цифр"))
+		return NewOrderError(orderID, true, false, false, user, errors.New("номер заказа содержит символы, отличные от цифр"))
 	}
 
 	if (orderNumber%10+lunhChecksum(orderNumber/10))%10 != 0 {
-		return NewOrderError(orderID, true, false, userLogin, errors.New("контрольное число указано неправильно в номере заказа"))
+		return NewOrderError(orderID, true, false, false, user, errors.New("контрольное число указано неправильно в номере заказа"))
 	}
 
 	var dbError *database.DBOrderError
-	err = o.model.AddOrder(userLogin, orderID)
+	err = o.model.AddOrder(user, orderID)
 	if err != nil && errors.As(err, &dbError) {
-		return NewOrderError(orderID, false, dbError.Duplicate, dbError.User, err)
+		return NewOrderError(orderID, false, dbError.Duplicate, false, dbError.User, err)
 	}
 
 	if err != nil {
@@ -128,4 +128,46 @@ func (o *orderController) GetUserAccount(user string) (*database.Account, error)
 	}
 
 	return account, nil
+}
+
+func (o *orderController) WithdrawForOrder(user string, orderID string, amount float32) error {
+	orderNumber, err := strconv.Atoi(orderID)
+	if err != nil {
+		return NewOrderError(orderID, true, false, false, user, errors.New("номер заказа содержит символы, отличные от цифр"))
+	}
+
+	if (orderNumber%10+lunhChecksum(orderNumber/10))%10 != 0 {
+		return NewOrderError(orderID, true, false, false, user, errors.New("контрольное число указано неправильно в номере заказа"))
+	}
+
+	account, err := o.GetUserAccount(user)
+	if err != nil {
+		return err
+	}
+
+	if amount > account.Balance {
+		return NewOrderError(orderID, false, false, true, user, errors.New("на счёте пользователя "+user+" недостаточно средств ("+strconv.FormatFloat(float64(account.Balance), 'E', -1, 32)+") для списания "+strconv.FormatFloat(float64(amount), 'E', -1, 32)+" баллов"))
+	}
+
+	transaction := database.Transaction{
+		OrderNumber: orderID,
+		UserLogin:   user,
+		Type:        database.TransactionTypeWithdrawal,
+		Amount:      amount,
+		CreatedAt:   time.Now(),
+	}
+
+	err = o.model.AddTransaction(&transaction)
+	if err != nil {
+		return err
+	}
+
+	account.Balance -= amount
+
+	err = o.model.UpdateUserAccount(account)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
