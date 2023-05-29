@@ -198,7 +198,7 @@ func (s *databaseStorage) AddUser(user string, password string) error {
 		return NewDBUserError(user, false, true, err)
 	}
 
-	ct, err = s.conn.Exec(ctx, queryInsertUserAccount, user, 0, 0)
+	_, err = s.conn.Exec(ctx, queryInsertUserAccount, user, 0, 0)
 	if err != nil {
 		log.Println("Ошибка при добавлении балльного счёта пользователя в БД:", err)
 		return err
