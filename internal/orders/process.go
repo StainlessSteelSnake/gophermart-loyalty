@@ -27,6 +27,7 @@ func (o *orderController) initOrderProcessing(channelCount int) {
 
 	go o.processErrors()
 	go o.getOrdersToProcess()
+	go o.processOrdersToSave()
 
 	go func() {
 		defer o.closeProcessingChannels()
@@ -57,6 +58,8 @@ func (o *orderController) getOrdersToProcess() {
 	}
 
 	orders, err := o.model.GetOrdersToProcess()
+	log.Printf("Найдено %v заказов для обработки\n", len(orders))
+
 	if err != nil {
 		o.errors <- err
 		time.AfterFunc(time.Second*1, func() { o.getOrdersToProcess() })

@@ -67,7 +67,7 @@ const (
 	queryInsertTransaction = `
 	INSERT INTO public.transactions
 	( order_number, user_login, type, amount, created_at)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	VALUES ($1, $2, $3, $4, $5)
 `
 	queryGetTransaction = `
 	SELECT order_number, user_login, type, amount, created_at
