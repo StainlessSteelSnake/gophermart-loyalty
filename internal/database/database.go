@@ -431,7 +431,7 @@ func (s *databaseStorage) getTransaction(orderID string) (*Transaction, error) {
 	var transaction Transaction
 
 	row := s.conn.QueryRow(ctx, queryGetTransaction, orderID)
-	err := row.Scan(&transaction.OrderNumber, &transaction.UserLogin, &transaction.Type, &transaction.Amount, &transaction.CreatedAt)
+	err := row.Scan(&transaction.OrderNumber, &transaction.UserLogin, &transaction.Type, &transaction.Amount, &transaction.CreatedAt.Time)
 
 	if err != nil && err == pgx.ErrNoRows {
 		log.Println("Транзакции по заказу " + orderID + " не найдены")
@@ -451,7 +451,7 @@ func (s *databaseStorage) AddTransaction(transaction *Transaction) error {
 
 	ctx := context.Background()
 
-	_, err := s.conn.Exec(ctx, queryInsertTransaction, transaction.OrderNumber, transaction.UserLogin, transaction.Type, transaction.Amount, transaction.CreatedAt)
+	_, err := s.conn.Exec(ctx, queryInsertTransaction, transaction.OrderNumber, transaction.UserLogin, transaction.Type, transaction.Amount, transaction.CreatedAt.Time)
 	if err != nil {
 		log.Println("Ошибка при добавлении транзакции:", err)
 		return err
