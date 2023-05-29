@@ -129,7 +129,7 @@ func (o *orderController) processOrder(order *Order) {
 	case 429:
 		retry := response.Header.Get("Retry-After")
 
-		//retryAfter, err := strconv.Atoi(retry)
+		retryAfter, err := strconv.Atoi(retry)
 		if err != nil {
 			o.errors <- errors.New("превышено количество запросов к сервису: " + response.Status + ", некорректный заголовок Retry-After: " + retry)
 			return
@@ -137,12 +137,12 @@ func (o *orderController) processOrder(order *Order) {
 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
-			//o.postponeProcessing(time.Second * time.Duration(retryAfter))
+			o.postponeProcessing(time.Second * time.Duration(retryAfter))
 			o.errors <- errors.New("превышено количество запросов к сервису: " + response.Status + ". " + err.Error())
 			return
 		}
 
-		//o.postponeProcessing(time.Second * time.Duration(retryAfter))
+		o.postponeProcessing(time.Second * time.Duration(retryAfter))
 		o.errors <- errors.New("превышено количество запросов к сервису: " + response.Status + ". " + string(body))
 		return
 
@@ -195,4 +195,8 @@ func (o *orderController) processOrdersToSave() {
 			o.errors <- err
 		}
 	}
+}
+
+func (o *orderController) postponeProcessing(seconds time.Duration) {
+
 }
