@@ -55,15 +55,15 @@ type Account struct {
 }
 
 type Transaction struct {
-	OrderNumber string
-	UserLogin   string
-	Type        string
-	Amount      float32
-	CreatedAt   time.Time
+	OrderNumber string         `json:"order"`
+	UserLogin   string         `json:"-"`
+	Type        string         `json:"-"`
+	Amount      float32        `json:"sum"`
+	CreatedAt   CustomDateTime `json:"processed_at"`
 }
 
 type Storager interface {
-	AddUser(userID string, password string) error
+	AddUser(user string, password string) error
 	GetUserPassword(login string) (string, error)
 
 	AddOrder(user string, order string) error
@@ -71,6 +71,7 @@ type Storager interface {
 	GetOrdersToProcess() ([]Order, error)
 	UpdateOrder(*Order, float32) error
 
+	GetTransactions(user, txType string) ([]Transaction, error)
 	AddTransaction(transaction *Transaction) error
 	UpdateUserAccount(account *Account) error
 
@@ -373,7 +374,7 @@ func (s *databaseStorage) UpdateOrder(order *Order, amount float32) error {
 			UserLogin:   order.UserLogin,
 			Type:        TransactionTypeAccrual,
 			Amount:      amount,
-			CreatedAt:   time.Now(),
+			CreatedAt:   CustomDateTime{Time: time.Now()},
 		}
 
 		_, err = s.conn.Exec(ctx, queryUpdateUserAccount, account.UserLogin, account.Balance, account.Withdrawn)
@@ -457,4 +458,39 @@ func (s *databaseStorage) AddTransaction(transaction *Transaction) error {
 	}
 
 	return nil
+}
+
+func (s *databaseStorage) GetTransactions(user, txType string) ([]Transaction, error) {
+	log.Printf("Получение транзакций типа '%v' для пользователя по заказу '%v'\n", txType, user)
+
+	ctx := context.Background()
+
+	rows, err := s.conn.Query(ctx, queryGetTransactions, user, txType)
+	if err != nil {
+		log.Println("Ошибка при запросе транзакций пользователя:", err)
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	result := make([]Transaction, 0)
+
+	for rows.Next() {
+		var transaction Transaction
+		err = rows.Scan(&transaction.OrderNumber, &transaction.UserLogin, &transaction.Type, &transaction.Amount, &transaction.CreatedAt.Time)
+		if err != nil {
+			log.Println("Ошибка при считывании записи транзакции из списка:", err)
+			return nil, err
+		}
+
+		result = append(result, transaction)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Println("Ошибка при считывании записей транзакций из списка:", err)
+		return nil, err
+	}
+
+	return result, nil
 }

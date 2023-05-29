@@ -95,5 +95,38 @@ func (h *Handler) withdrawPoints(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getWithdrawals(w http.ResponseWriter, r *http.Request) {
+	if h.currentUserLogin == "" {
+		log.Println("Пользователь не аутентифицирован")
+		http.Error(w, "пользователь не аутентифицирован", http.StatusUnauthorized)
+		return
+	}
 
+	transactions, err := h.orders.GetUserWithdrawals(h.currentUserLogin)
+	if err != nil {
+		log.Println("Ошибка при обработке запроса на получение списка списаний: " + err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(transactions) == 0 {
+		log.Println("Для пользователя " + h.currentUserLogin + " не найдено списаний")
+		http.Error(w, "Для пользователя "+h.currentUserLogin+" не найдено списаний", http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	response, err := json.Marshal(transactions)
+	if err != nil {
+		log.Println("Ошибка при формировании ответа:", err)
+		http.Error(w, "ошибка при формировании ответа: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	_, err = w.Write(response)
+	if err != nil {
+		log.Println("Ошибка при записи ответа в тело запроса:", err)
+	}
 }

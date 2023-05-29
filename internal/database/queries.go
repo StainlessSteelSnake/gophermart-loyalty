@@ -74,4 +74,10 @@ const (
 	FROM  public.transactions
 	WHERE order_number = $1
 `
+	queryGetTransactions = `
+	SELECT order_number, user_login, type, amount, created_at
+	FROM  public.transactions
+	WHERE user_login = $1 AND type = $2
+	ORDER BY created_at ASC
+`
 )

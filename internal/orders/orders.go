@@ -28,6 +28,7 @@ type OrderAdderGetter interface {
 	GetOrders(user string) ([]database.OrderWithAccrual, error)
 	GetUserAccount(user string) (*database.Account, error)
 	WithdrawForOrder(user, orderID string, amount float32) error
+	GetUserWithdrawals(user string) ([]database.Transaction, error)
 	Close()
 }
 
@@ -154,7 +155,7 @@ func (o *orderController) WithdrawForOrder(user string, orderID string, amount f
 		UserLogin:   user,
 		Type:        database.TransactionTypeWithdrawal,
 		Amount:      amount,
-		CreatedAt:   time.Now(),
+		CreatedAt:   database.CustomDateTime{Time: time.Now()},
 	}
 
 	err = o.model.AddTransaction(&transaction)
@@ -171,4 +172,13 @@ func (o *orderController) WithdrawForOrder(user string, orderID string, amount f
 	}
 
 	return nil
+}
+
+func (o *orderController) GetUserWithdrawals(user string) ([]database.Transaction, error) {
+	transactions, err := o.model.GetTransactions(user, database.TransactionTypeWithdrawal)
+	if err != nil {
+		return nil, err
+	}
+
+	return transactions, nil
 }
