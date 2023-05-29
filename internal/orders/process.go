@@ -37,7 +37,6 @@ func (o *orderController) initOrderProcessing(channelCount int) {
 				i = 0
 			}
 
-			// Получение заказа на обработку из общей очереди и отсылка его на обработку в один из каналов
 			order, ok := <-o.ordersToProcess
 			if !ok {
 				return
@@ -62,7 +61,7 @@ func (o *orderController) getOrdersToProcess() {
 
 	if err != nil {
 		o.errors <- err
-		time.AfterFunc(time.Second*1, func() { o.getOrdersToProcess() })
+		time.AfterFunc(time.Second*delayForGettingOrdersToProcess, func() { o.getOrdersToProcess() })
 		return
 	}
 
@@ -77,31 +76,27 @@ func (o *orderController) getOrdersToProcess() {
 		o.ordersToProcess <- &orderToProcess
 	}
 
-	time.AfterFunc(time.Second*1, func() { o.getOrdersToProcess() })
+	time.AfterFunc(time.Second*delayForGettingOrdersToProcess, func() { o.getOrdersToProcess() })
 }
 
-// Отслеживание отдельного канала на обработку заказов
 func (o *orderController) processOrdersInChannel(processingChannel <-chan *Order) {
 	for order := range processingChannel {
 		o.processOrder(order)
 	}
 }
 
-// Чтение ошибок из канала errors и вывод их в лог программы
 func (o *orderController) processErrors() {
 	for err := range o.errors {
 		log.Println(err)
 	}
 }
 
-// Закрытие всех каналов на обработку заказов в случае закрытия общего канала ordersToProcess
 func (o *orderController) closeProcessingChannels() {
 	for _, ch := range o.processingChannels {
 		close(ch)
 	}
 }
 
-// Закрытие всех каналов при завершении работы main()
 func (o *orderController) Close() {
 	close(o.done)
 	close(o.ordersToProcess)

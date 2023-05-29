@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	processChannelCount     = 10
-	ordersToSaveChannelSize = 10
-	errorQueueSize          = 10
-	orderStatusNew          = "REGISTERED"
+	delayForGettingOrdersToProcess = 1
+	processChannelCount            = 10
+	ordersToSaveChannelSize        = 10
+	errorQueueSize                 = 10
+	orderStatusNew                 = "REGISTERED"
 )
 
 type Order struct {
@@ -60,11 +61,6 @@ func NewOrders(m database.Storager, accrualSystemAddress string) (OrderAdderGett
 		model:  m,
 		client: http.Client{},
 	}
-
-	/*
-		result.retryAfter = sync.NewCond(&result.retryMutex)
-		result.pause = sync.NewCond(&result.mu)
-	*/
 
 	result.initOrderProcessing(processChannelCount)
 
